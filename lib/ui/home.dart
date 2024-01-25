@@ -11,14 +11,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final Completer<GoogleMapController> _controller =
-  Completer<GoogleMapController>();
+      Completer<GoogleMapController>();
+  Set<Marker> marker = {};
 
-  static const CameraPosition _kGooglePlex = CameraPosition(
-    target: LatLng(37.42796133580664, -122.085749655962),
-    zoom: 14.4746,
-  );
-
-  static const CameraPosition _kLake = CameraPosition(
+  CameraPosition UpdatemyLocation = CameraPosition(
       bearing: 192.8334901395799,
       target: LatLng(37.43296265331129, -122.08832357078792),
       tilt: 59.440717697143555,
@@ -38,68 +34,95 @@ class _HomeScreenState extends State<HomeScreen> {
     super.deactivate();
   }
 
+  int count = 0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("GPS"), ),
-      body: GoogleMap(
-        mapType: MapType.hybrid,
-        initialCameraPosition: _kGooglePlex,
-        onMapCreated: (GoogleMapController controller) {
-          _controller.complete(controller);
-        },
+      appBar: AppBar(
+        title: Text("GPS"),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _goToTheLake,
-        label: const Text('To the lake!'),
-        icon: const Icon(Icons.directions_boat),
-      ),
-
+      body: locationData == null
+          ? Center(child: CircularProgressIndicator())
+          : GoogleMap(
+              mapType: MapType.hybrid,
+              markers: marker,
+              onTap: (argument) {
+                marker.add(Marker(
+                    markerId: MarkerId("new$count"), position: argument));
+                count++;
+                setState(() {});
+              },
+              initialCameraPosition: currentLocation,
+              onMapCreated: (GoogleMapController controller) {
+                _controller.complete(controller);
+              },
+            ),
     );
   }
-  Future<void> _goToTheLake() async {
+
+  Future<void> updateMyLocation() async {
     final GoogleMapController controller = await _controller.future;
-    await controller.animateCamera(CameraUpdate.newCameraPosition(_kLake));
+    await controller.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(
+            zoom: 18,
+            target:
+                LatLng(locationData!.latitude!, locationData!.longitude!))));
   }
-  ///AIzaSyCQPGlkjIgOARatmBG8ikYwSGACRddtmTQ
-}
 
+  Location location = Location();
+  PermissionStatus? permissionStatus;
+  bool isServiceEnable = false;
+  LocationData? locationData;
+  StreamSubscription<LocationData>? subscription;
+  CameraPosition currentLocation = CameraPosition(
+    target: LatLng(27, 2345676543),
+    zoom: 14.4746,
+  );
 
-Location location = Location();
-PermissionStatus? permissionStatus;
-bool isServiceEnable = false;
-LocationData? locationData;
-StreamSubscription<LocationData>? subscription;
+  void getCurrentLocation() async {
+    bool permission = await ispermissionGranted();
+    if (!permission) return;
+    bool service = await isServiceeEnable();
 
-void getCurrentLocation() async {
-  bool permission = await ispermissionGranted();
-  if (!permission) return;
-  bool service = await isServiceeEnable();
-
-  if (!service) return;
-  location.getLocation();
-  locationData = await location.getLocation();
-  subscription = location.onLocationChanged.listen((event) {
-    locationData = event;
+    if (!service) return;
+    location.getLocation();
+    locationData = await location.getLocation();
+    marker.add(Marker(
+        markerId: MarkerId("myLocation"),
+        position: LatLng(locationData!.latitude!, locationData!.longitude!)));
+    currentLocation = CameraPosition(
+      target: LatLng(locationData!.latitude!, locationData!.longitude!),
+      zoom: 19.4746,
+    );
+    subscription = location.onLocationChanged.listen((event) {
+      locationData = event;
+      marker.add(Marker(
+          markerId: MarkerId("myLocation"),
+          position: LatLng(event.latitude!, event.longitude!)));
+      updateMyLocation();
+      setState(() {});
+      location.changeSettings(accuracy: LocationAccuracy.high);
+      print("lat:${locationData!.latitude},long:${locationData!.longitude}");
+    });
     location.changeSettings(accuracy: LocationAccuracy.high);
-    print("lat:${locationData!.latitude},long:${locationData!.longitude}");
-  });
-}
-
-Future<bool> isServiceeEnable() async {
-  isServiceEnable = await location.serviceEnabled();
-  if (!isServiceEnable) {
-    isServiceEnable = await location.requestService();
+    setState(() {});
   }
-  return isServiceEnable;
-}
-///lllllllllllllllllllllllllllllllllllllllllllllllllllllll
-Future<bool> ispermissionGranted() async {
-  permissionStatus = await location.hasPermission();
-  if (permissionStatus == PermissionStatus.denied) {
-    permissionStatus = await location.requestPermission();
+
+  Future<bool> isServiceeEnable() async {
+    isServiceEnable = await location.serviceEnabled();
+    if (!isServiceEnable) {
+      isServiceEnable = await location.requestService();
+    }
+    return isServiceEnable;
+  }
+
+  Future<bool> ispermissionGranted() async {
+    permissionStatus = await location.hasPermission();
+    if (permissionStatus == PermissionStatus.denied) {
+      permissionStatus = await location.requestPermission();
+      return permissionStatus == PermissionStatus.granted;
+    }
     return permissionStatus == PermissionStatus.granted;
   }
-  return permissionStatus == PermissionStatus.granted;
 }
-
