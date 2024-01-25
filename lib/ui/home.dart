@@ -14,7 +14,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Completer<GoogleMapController>();
   Set<Marker> marker = {};
 
-  CameraPosition _kLake = CameraPosition(
+  CameraPosition UpdatemyLocation = CameraPosition(
       bearing: 192.8334901395799,
       target: LatLng(37.43296265331129, -122.08832357078792),
       tilt: 59.440717697143555,
@@ -34,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.deactivate();
   }
 
+  int count = 0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,8 +48,9 @@ class _HomeScreenState extends State<HomeScreen> {
               mapType: MapType.hybrid,
               markers: marker,
               onTap: (argument) {
-                marker
-                    .add(Marker(markerId: MarkerId("new"), position: argument));
+                marker.add(Marker(
+                    markerId: MarkerId("new$count"), position: argument));
+                count++;
                 setState(() {});
               },
               initialCameraPosition: currentLocation,
@@ -58,9 +61,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _goToTheLake() async {
+  Future<void> updateMyLocation() async {
     final GoogleMapController controller = await _controller.future;
-    await controller.animateCamera(CameraUpdate.newCameraPosition(_kLake));
+    await controller.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(
+            zoom: 18,
+            target:
+                LatLng(locationData!.latitude!, locationData!.longitude!))));
   }
 
   Location location = Location();
@@ -90,6 +97,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     subscription = location.onLocationChanged.listen((event) {
       locationData = event;
+      marker.add(Marker(
+          markerId: MarkerId("myLocation"),
+          position: LatLng(event.latitude!, event.longitude!)));
+      updateMyLocation();
+      setState(() {});
       location.changeSettings(accuracy: LocationAccuracy.high);
       print("lat:${locationData!.latitude},long:${locationData!.longitude}");
     });
